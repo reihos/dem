@@ -1,5 +1,5 @@
-#include <iostream>
 #include <cmath>
+#include <iostream>
 #include <fstream>
 
 // grain structure with the following members:radius, mass density, x of center, y of center, translational velocity and acceleration in 2 directions, rotation angle, rotational velocity, rotational acceleration, and mass
@@ -71,7 +71,7 @@ int main(){
   double dt=1e-4;
   double t=1.;
   int iwrite=100;
-  double nsteps=int(t/dt);
+  int nsteps=int(t/dt);
 
   for (int i=0; i<nsteps;++i){
     //std::cout<<i<<std::endl;
