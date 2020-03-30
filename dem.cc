@@ -10,17 +10,22 @@ struct grain{
   double gx,gy;
   bool fix;
 };
-
+  
 const int ngrains=2;
 struct grain grains[ngrains];
-double kn=1e8;             //normal stiffness
-double kt=1e6;             //tangent stiffness
-double damp_ratio=0.05;    //damping ratio
-double fric=0.5;           // friction coefficient (mu)
-double rollfric=0.5;       // rolling friiction coefficient (mu_r)
-double c_critical=2*sqrt(kn*grains[0].m); // critical viscosity
-double cn=damp_ratio*c_critical; // normal viscosity
-double dt;                 // timestep
+
+struct contact{
+  double kn;             //normal stiffness
+  double kt;             //tangent stiffness
+  //double damp_ratio;    //damping ratio
+  double cor;            // coefficient of restitution 
+  double fric;           // friction coefficient (mu)
+  double rollfric;       // rolling friiction coefficient (mu_r)
+  double gamma=-log(cor)/sqrt(M_PI*M_PI+log(cor)*log(cor)); // needed for calculating cn based on cor (Cleary,2000)
+};
+  
+struct contact grain_grain;
+double dt=1e-6;                 // timestep
 
 // function to calculate the forces between particles jm and js and update the acceleration of jm (master particle) in 2 directions.
 void update_acceleration(int jm,int js){
@@ -33,10 +38,14 @@ void update_acceleration(int jm,int js){
   double rel_vel_tangent;
   double rel_theta;
   double r_avg;
+  double cn;
   double force_normal;
   double force_tangent;
   double rolling_moment;
   double force[2];
+  
+  grains[jm].ax=grains[jm].gx;
+  grains[jm].ay=grains[jm].gy;
 
   distance = sqrt(pow(grains[jm].xc-grains[js].xc,2)+pow(grains[jm].yc-grains[js].yc,2)); 
   delta = distance - grains[jm].r -grains[js].r;
@@ -53,17 +62,18 @@ void update_acceleration(int jm,int js){
     rel_theta=(grains[jm].omega+grains[js].omega)*dt;
     r_avg=(grains[jm].r+grains[js].r)/2;
     // caluclating normal and tangent forces and rolling moment
-    force_normal=-kn*delta-cn*rel_vel_normal;
-    if (force_normal<0){force_normal=0;}
-    force_tangent=-kt*rel_vel_tangent*dt;
-    if (abs(force_tangent)>fric*force_normal){
-      if (force_tangent>0){force_tangent=fric*force_normal;}
-      if (force_tangent<0){force_tangent=-fric*force_normal;}
+    cn = 2*grain_grain.gamma*sqrt(grain_grain.kn*(grains[jm].m*grains[js].m)/(grains[jm].m+grains[js].m)); //(Cleary,2000)
+    force_normal=-grain_grain.kn*delta-cn*rel_vel_normal;
+    //if (force_normal<0){force_normal=0;}
+    force_tangent=-grain_grain.kt*rel_vel_tangent*dt;
+    if (abs(force_tangent)>grain_grain.fric*force_normal){
+      if (force_tangent>0){force_tangent=grain_grain.fric*force_normal;}
+      if (force_tangent<0){force_tangent=-grain_grain.fric*force_normal;}
     }
-    rolling_moment=-kt*r_avg*r_avg*rel_theta;
-    if (abs(rolling_moment)>rollfric*force_normal*r_avg){
-      if (rolling_moment>0){rolling_moment=rollfric*force_normal*r_avg;}
-      if (rolling_moment<0){rolling_moment=-rollfric*force_normal*r_avg;}
+    rolling_moment=-grain_grain.kt*r_avg*r_avg*rel_theta;
+    if (abs(rolling_moment)>grain_grain.rollfric*force_normal*r_avg){
+      if (rolling_moment>0){rolling_moment=grain_grain.rollfric*force_normal*r_avg;}
+      if (rolling_moment<0){rolling_moment=-grain_grain.rollfric*force_normal*r_avg;}
     }
     // caluclating forces in x and y direction
     force[0]=force_normal*normal[0]+force_tangent*tangent[0];
@@ -72,10 +82,11 @@ void update_acceleration(int jm,int js){
     grains[jm].ax=force[0]/grains[jm].m;
     grains[jm].ay=force[1]/grains[jm].m;
     grains[jm].alpha=(-force_tangent*grains[jm].r+rolling_moment)/grains[jm].inertia;
+    //std::cout<<delta<<"\t"<<force_normal<<"\t"<<force[1]<<"\t"<<grains[jm].ay<<std::endl;
+    // adding the assigned gravity to the accelerations
+    grains[jm].ax+=grains[jm].gx;
+    grains[jm].ay+=grains[jm].gy;
   }
-  // adding the assigned gravity to the accelerations
-  grains[jm].ax+=grains[jm].gx;
-  grains[jm].ay+=grains[jm].gy;
 }
 
 // function to update the location and velocity of particle jm
@@ -118,28 +129,29 @@ void set_gravity(double gx, double gy){
 }
 
 // function to fix the velocity or position of grain j (for now I have only coded "all" which fixes both velocity and acceleration
-void fix_grain(int j, std::string fix_type){
+void fix_grain(int j, const std::string& fix_type){
   if (fix_type=="all"){
    grains[j].fix = true;
   }
 }
 
 // function to calculate the time step for iterations
-void calculate_timestep(){
-  double dt_critical=2*(sqrt(1+damp_ratio*damp_ratio)-damp_ratio)/sqrt(kn/grains[0].m);
-  dt=0.1*dt_critical;
-  std::cout<<"time step = "<<dt<<std::endl;
-}
+//void calculate_timestep(){
+//  double dt_critical=2*(sqrt(1+damp_ratio*damp_ratio)-damp_ratio)/sqrt(kn/grains[0].m);
+//  dt=0.1*dt_critical;
+//  std::cout<<"time step = "<<dt<<std::endl;
+//}
 
 int main(){
   
-  grains[0]= {1,2650.,0.,-1.};
-  grains[1]= {1,2650.,0.,5.};
-  set_gravity(0.,-10);
+  grains[0]= {0.025,1e8,0.,-0.025};
+  grains[1]= {0.025,33.33,0.,0.2};
+  set_gravity(0.,-9.81);
   fix_grain(0,"all");
-  calculate_timestep();
+  grain_grain={1e4,0.,0.7,0.,0.};
+  //calculate_timestep();
   double t=1.;
-  int iwrite=100;
+  int iwrite=1000;
   int nsteps=int(t/dt);
 
   for (int i=0; i<nsteps;++i){
@@ -153,8 +165,14 @@ int main(){
     for (int jm=0; jm<ngrains; ++jm){
       update_kinematics(jm);
     }
-    if (i%iwrite==0){
-      write_for_plotting(i);
-    }
+    //if (i%iwrite==0){
+    //  write_for_plotting(i);
+    //}
+    
+    std::ofstream file;
+    file.open("cpp_dem_results.txt", std::fstream::app);
+    file <<i*dt<<"\t"<<grains[1].yc<<std::endl;
+    file.close();
+
   }
 }
