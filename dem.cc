@@ -46,8 +46,8 @@ void update_acceleration(int jm, int js) {
   const double delta = distance - grains[jm].r - grains[js].r;
   if (delta < 0.) {
     // calculating the normal and tangent unit vectors
-    const double normal[2];
-    const double tangent[2];
+    double normal[2];
+    double tangent[2];
     normal[0] = (grains[jm].xc - grains[js].xc) / distance;
     normal[1] = (grains[jm].yc - grains[js].yc) / distance;
     tangent[0] = -normal[1];
@@ -65,9 +65,9 @@ void update_acceleration(int jm, int js) {
     const double cn = 2 * grain_grain.gamma *
                       sqrt(grain_grain.kn * (grains[jm].m * grains[js].m) /
                            (grains[jm].m + grains[js].m));  //(Cleary,2000)
-    const double force_normal = -grain_grain.kn * delta - cn * rel_vel_normal;
+    double force_normal = -grain_grain.kn * delta - cn * rel_vel_normal;
     // if (force_normal<0){force_normal=0;}
-    const double force_tangent = -grain_grain.kt * rel_vel_tangent * dt;
+    double force_tangent = -grain_grain.kt * rel_vel_tangent * dt;
     if (abs(force_tangent) > grain_grain.fric * force_normal) {
       if (force_tangent > 0) {
         force_tangent = grain_grain.fric * force_normal;
@@ -76,7 +76,7 @@ void update_acceleration(int jm, int js) {
         force_tangent = -grain_grain.fric * force_normal;
       }
     }
-    const double rolling_moment = -grain_grain.kt * r_avg * r_avg * rel_theta;
+    double rolling_moment = -grain_grain.kt * r_avg * r_avg * rel_theta;
     if (abs(rolling_moment) > grain_grain.rollfric * force_normal * r_avg) {
       if (rolling_moment > 0) {
         rolling_moment = grain_grain.rollfric * force_normal * r_avg;
@@ -86,7 +86,7 @@ void update_acceleration(int jm, int js) {
       }
     }
     // calculating forces in x and y direction
-    const double force[2];
+    double force[2];
     force[0] = force_normal * normal[0] + force_tangent * tangent[0];
     force[1] = force_normal * normal[1] + force_tangent * tangent[1];
     // updatig accerelations
