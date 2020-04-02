@@ -38,47 +38,36 @@ double dt = 1e-6;  // timestep
 // acceleration of jm (master particle) in 2 directions.
 void update_acceleration(int jm, int js) {
 
-  double distance;
-  double delta;
-  double normal[2];
-  double tangent[2];
-  double rel_vel_normal;
-  double rel_vel_tangent;
-  double rel_theta;
-  double r_avg;
-  double cn;
-  double force_normal;
-  double force_tangent;
-  double rolling_moment;
-  double force[2];
-
   grains[jm].ax = grains[jm].gx;
   grains[jm].ay = grains[jm].gy;
 
-  distance = sqrt(pow(grains[jm].xc - grains[js].xc, 2) +
-                  pow(grains[jm].yc - grains[js].yc, 2));
-  delta = distance - grains[jm].r - grains[js].r;
+  const double distance = sqrt(pow(grains[jm].xc - grains[js].xc, 2) +
+                               pow(grains[jm].yc - grains[js].yc, 2));
+  const double delta = distance - grains[jm].r - grains[js].r;
   if (delta < 0.) {
     // calculating the normal and tangent unit vectors
+    const double normal[2];
+    const double tangent[2];
     normal[0] = (grains[jm].xc - grains[js].xc) / distance;
     normal[1] = (grains[jm].yc - grains[js].yc) / distance;
     tangent[0] = -normal[1];
     tangent[1] = normal[0];
     // calculating the normal and tangent relative velocities
-    rel_vel_normal = (grains[jm].vx - grains[js].vx) * normal[0] +
-                     (grains[jm].vy - grains[js].vy) * normal[1];
-    rel_vel_tangent = (grains[jm].vx - grains[js].vx) * tangent[0] +
-                      (grains[jm].vy - grains[js].vy) * tangent[1];
+    const double rel_vel_normal = (grains[jm].vx - grains[js].vx) * normal[0] +
+                                  (grains[jm].vy - grains[js].vy) * normal[1];
+    const double rel_vel_tangent =
+        (grains[jm].vx - grains[js].vx) * tangent[0] +
+        (grains[jm].vy - grains[js].vy) * tangent[1];
     // calculating the relative rotation angle and average radius
-    rel_theta = (grains[jm].omega + grains[js].omega) * dt;
-    r_avg = (grains[jm].r + grains[js].r) / 2;
+    const double rel_theta = (grains[jm].omega + grains[js].omega) * dt;
+    const double r_avg = (grains[jm].r + grains[js].r) / 2;
     // calculating normal and tangent forces and rolling moment
-    cn = 2 * grain_grain.gamma *
-         sqrt(grain_grain.kn * (grains[jm].m * grains[js].m) /
-              (grains[jm].m + grains[js].m));  //(Cleary,2000)
-    force_normal = -grain_grain.kn * delta - cn * rel_vel_normal;
+    const double cn = 2 * grain_grain.gamma *
+                      sqrt(grain_grain.kn * (grains[jm].m * grains[js].m) /
+                           (grains[jm].m + grains[js].m));  //(Cleary,2000)
+    const double force_normal = -grain_grain.kn * delta - cn * rel_vel_normal;
     // if (force_normal<0){force_normal=0;}
-    force_tangent = -grain_grain.kt * rel_vel_tangent * dt;
+    const double force_tangent = -grain_grain.kt * rel_vel_tangent * dt;
     if (abs(force_tangent) > grain_grain.fric * force_normal) {
       if (force_tangent > 0) {
         force_tangent = grain_grain.fric * force_normal;
@@ -87,7 +76,7 @@ void update_acceleration(int jm, int js) {
         force_tangent = -grain_grain.fric * force_normal;
       }
     }
-    rolling_moment = -grain_grain.kt * r_avg * r_avg * rel_theta;
+    const double rolling_moment = -grain_grain.kt * r_avg * r_avg * rel_theta;
     if (abs(rolling_moment) > grain_grain.rollfric * force_normal * r_avg) {
       if (rolling_moment > 0) {
         rolling_moment = grain_grain.rollfric * force_normal * r_avg;
@@ -97,6 +86,7 @@ void update_acceleration(int jm, int js) {
       }
     }
     // calculating forces in x and y direction
+    const double force[2];
     force[0] = force_normal * normal[0] + force_tangent * tangent[0];
     force[1] = force_normal * normal[1] + force_tangent * tangent[1];
     // updatig accerelations
@@ -143,57 +133,61 @@ void write_for_plotting(int i) {
   file.close();
 }
 
-// function to calculate the coordinates of npoints on the perimeter of all the grains and write a PostScript 
-void write_ps(int step, int max_steps){
+// function to calculate the coordinates of npoints on the perimeter of all the
+// grains and write a PostScript
+void write_ps(int step, int max_steps) {
   std::ofstream file;
   std::stringstream file_name;
-  int npoints=32;
+  int npoints = 32;
   double x_perimeter;
   double y_perimeter;
-  double angle=2*M_PI/npoints;
-  
-  //file_name.str(std::string());
-  file_name<<"stats";
+  double angle = 2 * M_PI / npoints;
+
+  // file_name.str(std::string());
+  file_name << "stats";
   file_name.fill('0');
-  int digits=log10(max_steps)+1;
+  int digits = log10(max_steps) + 1;
   file_name.width(digits);
-  file_name<<step;
-  file_name<<".ps";
+  file_name << step;
+  file_name << ".ps";
   file.open(file_name.str());
-  file<<"%!PS \n";
-  file<<"%%BoundingBox: -200 -100 200 300\n"; 
-  for (int j=0; j<ngrains;++j){
-    for (int np=0; np<npoints;++np){
-      x_perimeter=grains[j].xc+grains[j].r*cos(angle*np);
-      y_perimeter=grains[j].yc+grains[j].r*sin(angle*np);
-      if (np==0){
-        file<<x_perimeter*1000<<" "<<y_perimeter*1000<<" "<<"newpath moveto ";
-      }
-      else{
-        file<<x_perimeter*1000<<" "<<y_perimeter*1000<<" "<<"lineto ";
+  file << "%!PS \n";
+  file << "%%BoundingBox: -200 -100 200 300\n";
+  for (int j = 0; j < ngrains; ++j) {
+    for (int np = 0; np < npoints; ++np) {
+      x_perimeter = grains[j].xc + grains[j].r * cos(angle * np);
+      y_perimeter = grains[j].yc + grains[j].r * sin(angle * np);
+      if (np == 0) {
+        file << x_perimeter * 1000 << " " << y_perimeter * 1000 << " "
+             << "newpath moveto ";
+      } else {
+        file << x_perimeter * 1000 << " " << y_perimeter * 1000 << " "
+             << "lineto ";
       }
     }
-    file<<"closepath gsave ";
-    file<<"0.9 0.7 0.5 setrgbcolor ";
-    file<<"fill grestore ";
-    file<<"0.8 0.4 0.1 setrgbcolor ";
-    file<<"stroke\n";
+    file << "closepath gsave ";
+    file << "0.9 0.7 0.5 setrgbcolor ";
+    file << "fill grestore ";
+    file << "0.8 0.4 0.1 setrgbcolor ";
+    file << "stroke\n";
   }
   file.close();
 }
 
-// function to set the gravity of the grains in 2 directions to the assigned values
-void set_gravity(double gx, double gy){
-  for (int j=0; j<ngrains;++j){
-    grains[j].gx=gx;
-    grains[j].gy=gy;
+// function to set the gravity of the grains in 2 directions to the assigned
+// values
+void set_gravity(double gx, double gy) {
+  for (int j = 0; j < ngrains; ++j) {
+    grains[j].gx = gx;
+    grains[j].gy = gy;
   }
 }
 
-// function to fix the velocity or position of grain j (for now I have only coded "all" which fixes both velocity and acceleration
-void fix_grain(int j, const std::string& fix_type){
-  if (fix_type=="all"){
-   grains[j].fix = true;
+// function to fix the velocity or position of grain j (for now I have only
+// coded "all" which fixes both velocity and acceleration
+void fix_grain(int j, const std::string& fix_type) {
+  if (fix_type == "all") {
+    grains[j].fix = true;
   }
 }
 
@@ -228,14 +222,13 @@ int main() {
     for (int jm = 0; jm < ngrains; ++jm) {
       update_kinematics(jm);
     }
-    if (i%iwrite==0){
+    if (i % iwrite == 0) {
       write_ps(i, nsteps);
     }
-    
-  //  std::ofstream file;
-  //  file.open("cpp_dem_results.txt", std::fstream::app);
-  //  file <<i*dt<<"\t"<<grains[1].yc<<std::endl;
-  //  file.close();
 
+    //  std::ofstream file;
+    //  file.open("cpp_dem_results.txt", std::fstream::app);
+    //  file <<i*dt<<"\t"<<grains[1].yc<<std::endl;
+    //  file.close();
   }
 }
