@@ -1,6 +1,7 @@
 #include <cmath>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 
 // grain structure with the following members:radius, mass density, x of center, y of center, translational velocity and acceleration in 2 directions, rotation angle, rotational velocity, rotational acceleration, mass, moment of inertia, and gravity
 struct grain{
@@ -99,7 +100,7 @@ void update_kinematics(int jm){
   }
 }
 
-// function to caluclate the coordinates of npoints on the perimeter of all the grains and write to file for plotting
+// function to caluclate the coordinates of npoints on the perimeter of all the grains and write to file for gnuplotting
 void write_for_plotting(int i){
   std::ofstream file;
   int npoints=32;
@@ -116,6 +117,45 @@ void write_for_plotting(int i){
       file <<x_perimeter[np]<<"\t"<<y_perimeter[np]<<std::endl;
     }
     file<<"\n\n";
+  }
+  file.close();
+}
+
+// function to caluclate the coordinates of npoints on the perimeter of all the grains and write a PostScript 
+void write_ps(int step, int max_steps){
+  std::ofstream file;
+  std::stringstream file_name;
+  int npoints=32;
+  double x_perimeter;
+  double y_perimeter;
+  double angle=2*M_PI/npoints;
+  
+  //file_name.str(std::string());
+  file_name<<"stats";
+  file_name.fill('0');
+  int digits=log10(max_steps)+1;
+  file_name.width(digits);
+  file_name<<step;
+  file_name<<".ps";
+  file.open(file_name.str());
+  file<<"%!PS \n";
+  file<<"%%BoundingBox: -200 -100 200 300\n"; 
+  for (int j=0; j<ngrains;++j){
+    for (int np=0; np<npoints;++np){
+      x_perimeter=grains[j].xc+grains[j].r*cos(angle*np);
+      y_perimeter=grains[j].yc+grains[j].r*sin(angle*np);
+      if (np==0){
+        file<<x_perimeter*1000<<" "<<y_perimeter*1000<<" "<<"newpath moveto ";
+      }
+      else{
+        file<<x_perimeter*1000<<" "<<y_perimeter*1000<<" "<<"lineto ";
+      }
+    }
+    file<<"closepath gsave ";
+    file<<"0.9 0.7 0.5 setrgbcolor ";
+    file<<"fill grestore ";
+    file<<"0.8 0.4 0.1 setrgbcolor ";
+    file<<"stroke\n";
   }
   file.close();
 }
@@ -153,7 +193,7 @@ int main(){
   double t=1.;
   int iwrite=1000;
   int nsteps=int(t/dt);
-
+  
   for (int i=0; i<nsteps;++i){
     for (int jm=0; jm<ngrains; ++jm){
       for (int js=0; js<ngrains; ++js){
@@ -165,14 +205,14 @@ int main(){
     for (int jm=0; jm<ngrains; ++jm){
       update_kinematics(jm);
     }
-    //if (i%iwrite==0){
-    //  write_for_plotting(i);
-    //}
+    if (i%iwrite==0){
+      write_ps(i, nsteps);
+    }
     
-    std::ofstream file;
-    file.open("cpp_dem_results.txt", std::fstream::app);
-    file <<i*dt<<"\t"<<grains[1].yc<<std::endl;
-    file.close();
+  //  std::ofstream file;
+  //  file.open("cpp_dem_results.txt", std::fstream::app);
+  //  file <<i*dt<<"\t"<<grains[1].yc<<std::endl;
+  //  file.close();
 
   }
 }
