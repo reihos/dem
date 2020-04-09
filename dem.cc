@@ -83,25 +83,21 @@ void update_acceleration_grain_grain(int jm, int js) {
                       sqrt(grain_grain.kn * (grains[jm].m * grains[js].m) /
                            (grains[jm].m + grains[js].m));  //(Cleary,2000)
     double force_normal = -grain_grain.kn * delta - cn * rel_vel_normal;
-    // if (force_normal<0){force_normal=0;}
+    // if (force_normal<0.) force_normal=0;
     double force_tangent = -grain_grain.kt * rel_vel_tangent * dt;
     if (std::abs(force_tangent) > grain_grain.fric * force_normal) {
-      if (force_tangent > 0) {
+      if (force_tangent > 0.)
         force_tangent = grain_grain.fric * force_normal;
-      }
-      if (force_tangent < 0) {
+      else
         force_tangent = -grain_grain.fric * force_normal;
-      }
     }
     double rolling_moment = -grain_grain.kt * r_avg * r_avg * rel_theta;
     if (std::abs(rolling_moment) >
         grain_grain.rollfric * force_normal * r_avg) {
-      if (rolling_moment > 0) {
+      if (rolling_moment > 0.)
         rolling_moment = grain_grain.rollfric * force_normal * r_avg;
-      }
-      if (rolling_moment < 0) {
+      else
         rolling_moment = -grain_grain.rollfric * force_normal * r_avg;
-      }
     }
     // calculating forces in x and y direction
     double force[2];
@@ -124,9 +120,8 @@ void update_acceleration_grain_wall(int jm, int w) {
        walls[w].tan_slope * walls[w].point[0] + walls[w].point[1]) /
       sqrt(walls[w].tan_slope * walls[w].tan_slope + 1.);
   double delta;
-  if (walls[w].tangent[0] > 0.) {
-    delta = distance - grains[jm].r;
-  } else if (walls[w].tangent[0] < 0.) {
+  if (walls[w].tangent[0] > 0.) delta = distance - grains[jm].r;
+  else if (walls[w].tangent[0] < 0.) {
     delta = -distance - grains[jm].r;
   }
   if (delta < 0.) {
@@ -143,25 +138,21 @@ void update_acceleration_grain_wall(int jm, int w) {
     const double cn =
         2 * grain_grain.gamma * sqrt(grain_grain.kn * grains[jm].m);
     double force_normal = -grain_grain.kn * delta - cn * rel_vel_normal;
-    // if (force_normal<0){force_normal=0;}
+    if (force_normal<0.) force_normal=0;
     double force_tangent = -grain_grain.kt * rel_vel_tangent * dt;
     if (std::abs(force_tangent) > grain_grain.fric * force_normal) {
-      if (force_tangent > 0.) {
+      if (force_tangent > 0.)
         force_tangent = grain_grain.fric * force_normal;
-      }
-      if (force_tangent < 0.) {
+      else
         force_tangent = -grain_grain.fric * force_normal;
-      }
     }
     double rolling_moment = -grain_grain.kt * r_avg * r_avg * rel_theta;
     if (std::abs(rolling_moment) >
         grain_grain.rollfric * force_normal * r_avg) {
-      if (rolling_moment > 0.) {
+      if (rolling_moment > 0.)
         rolling_moment = grain_grain.rollfric * force_normal * r_avg;
-      }
-      if (rolling_moment < 0.) {
+      else
         rolling_moment = -grain_grain.rollfric * force_normal * r_avg;
-      }
     }
     // calculating forces in x and y direction
     double force[2];
@@ -180,7 +171,7 @@ void update_acceleration_grain_wall(int jm, int w) {
     std::cout << "normalized normal force = "
               << force_normal / (grains[jm].m * 9.81 * cos(45. / 180. * M_PI))
               << std::endl;
-  m
+  }
 }
 // function to update the location and velocity of particle jm
 void update_kinematics(int jm) {
@@ -241,13 +232,12 @@ void write_ps(int step, int max_steps) {
     for (int np = 0; np < npoints; ++np) {
       x_perimeter = grains[j].xc + grains[j].r * cos(angle * np);
       y_perimeter = grains[j].yc + grains[j].r * sin(angle * np);
-      if (np == 0) {
+      if (np == 0)
         file << x_perimeter * 10 << " " << y_perimeter * 10 << " "
              << "newpath moveto ";
-      } else {
+      else
         file << x_perimeter * 10 << " " << y_perimeter * 10 << " "
              << "lineto ";
-      }
     }
     file << "closepath gsave ";
     file << "0.9 0.7 0.5 setrgbcolor ";
@@ -292,7 +282,7 @@ int main() {
   grains[0].xc = x_start - grains[0].r * sin(slope_angle);
   grains[0].yc = x_start * tan(slope_angle) + grains[0].r * cos(slope_angle);
   set_gravity(0., -9.81);
-  grain_grain = {1e5, 1e7, 0.5, tan(60. / 180. * M_PI), 1.};
+  grain_grain = {1e5, 1e7, 0.5, tan(30. / 180. * M_PI), 1.};
   // calculate_timestep();
   double t = 0.5;
   int iwrite = 1000;
@@ -301,9 +291,7 @@ int main() {
     for (int jm = 0; jm < ngrains; ++jm) {
       initialize_acceleration(jm);
       for (int js = 0; js < ngrains; ++js) {
-        if (jm != js) {
-          update_acceleration_grain_grain(jm, js);
-        }
+        if (jm != js) update_acceleration_grain_grain(jm, js);
       }
       for (int w = 0; w < nwalls; ++w) {
         update_acceleration_grain_wall(jm, w);
@@ -312,9 +300,7 @@ int main() {
     for (int jm = 0; jm < ngrains; ++jm) {
       update_kinematics(jm);
     }
-    if (i % iwrite == 0) {
-      write_for_plotting(i);
-    }
+    if (i % iwrite == 0) write_for_plotting(i);
 
     //  std::ofstream file;
     //  file.open("cpp_dem_results.txt", std::fstream::app);
