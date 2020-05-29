@@ -15,7 +15,8 @@ struct grain {
   bool fix;
 };
 
-const int ngrains = 1;
+const int single_layer_ngrains = 20;
+const int ngrains = single_layer_ngrains * single_layer_ngrains;
 struct grain grains[ngrains];
 
 struct contact {
@@ -43,7 +44,7 @@ struct wall {
       tangent[1] / tangent[0];  // tangent of the slope of the wall
 };
 
-const int nwalls = 1;
+const int nwalls = 2;
 struct wall walls[nwalls];
 
 // function to initialize the acceleration of grain jm
@@ -103,7 +104,7 @@ void update_acceleration_grain_grain(int jm, int js) {
     double force[2];
     force[0] = force_normal * normal[0] + force_tangent * tangent[0];
     force[1] = force_normal * normal[1] + force_tangent * tangent[1];
-    // updatig accerelations
+    // updating accerelations
     grains[jm].ax += force[0] / grains[jm].m;
     grains[jm].ay += force[1] / grains[jm].m;
     grains[jm].alpha +=
@@ -120,7 +121,8 @@ void update_acceleration_grain_wall(int jm, int w) {
        walls[w].tan_slope * walls[w].point[0] + walls[w].point[1]) /
       sqrt(walls[w].tan_slope * walls[w].tan_slope + 1.);
   double delta;
-  if (walls[w].tangent[0] > 0.) delta = distance - grains[jm].r;
+  if (walls[w].tangent[0] > 0.)
+    delta = distance - grains[jm].r;
   else if (walls[w].tangent[0] < 0.) {
     delta = -distance - grains[jm].r;
   }
@@ -138,7 +140,7 @@ void update_acceleration_grain_wall(int jm, int w) {
     const double cn =
         2 * grain_grain.gamma * sqrt(grain_grain.kn * grains[jm].m);
     double force_normal = -grain_grain.kn * delta - cn * rel_vel_normal;
-    if (force_normal<0.) force_normal=0;
+    if (force_normal < 0.) force_normal = 0;
     double force_tangent = -grain_grain.kt * rel_vel_tangent * dt;
     if (std::abs(force_tangent) > grain_grain.fric * force_normal) {
       if (force_tangent > 0.)
@@ -160,17 +162,11 @@ void update_acceleration_grain_wall(int jm, int w) {
         force_normal * walls[w].normal[0] + force_tangent * walls[w].tangent[0];
     force[1] =
         force_normal * walls[w].normal[1] + force_tangent * walls[w].tangent[1];
-    // updatig accerelations
+    // updating accerelations
     grains[jm].ax += force[0] / grains[jm].m;
     grains[jm].ay += force[1] / grains[jm].m;
     grains[jm].alpha +=
         (-force_tangent * grains[jm].r + rolling_moment) / grains[jm].inertia;
-    std::cout << "normalized tangent force = "
-              << force_tangent / (grains[jm].m * 9.81 * sin(45. / 180. * M_PI))
-              << std::endl;
-    std::cout << "normalized normal force = "
-              << force_normal / (grains[jm].m * 9.81 * cos(45. / 180. * M_PI))
-              << std::endl;
   }
 }
 // function to update the location and velocity of particle jm
@@ -188,19 +184,28 @@ void update_kinematics(int jm) {
 
 // function to calculate the coordinates of npoints on the perimeter of all the
 // grains and write to file for gnuplotting
-void write_for_plotting(int i) {
+void write_for_plotting(int step, int max_steps) {
   std::ofstream file;
+  std::stringstream file_name;
   int npoints = 32;
   double x_perimeter;
   double y_perimeter;
   double angle = 2 * M_PI / npoints;
 
-  file.open("stats" + std::to_string(i) + ".dat");
+  file_name << "positions";
+  file_name.fill('0');
+  int digits = log10(max_steps) + 1;
+  file_name.width(digits);
+  file_name << step;
+  file_name << ".dat";
+  file.open(file_name.str());
   for (int j = 0; j < ngrains; ++j) {
     file << "grain=" + std::to_string(j) << std::endl;
     for (int np = 0; np < npoints; ++np) {
-      x_perimeter = grains[j].xc + grains[j].r * cos(angle * np);
-      y_perimeter = grains[j].yc + grains[j].r * sin(angle * np);
+      x_perimeter =
+          grains[j].xc + grains[j].r * cos(angle * np + grains[j].theta);
+      y_perimeter =
+          grains[j].yc + grains[j].r * sin(angle * np + grains[j].theta);
       file << x_perimeter << "\t" << y_perimeter << std::endl;
     }
     file << "\n\n";
@@ -210,16 +215,18 @@ void write_for_plotting(int i) {
 
 // function to calculate the coordinates of npoints on the perimeter of all the
 // grains and write a PostScript
-void write_ps(int step, int max_steps) {
+void write_ps(int step, int max_steps, double right_bound, double left_bound,
+              double bot_bound, double top_bound) {
   std::ofstream file;
   std::stringstream file_name;
   int npoints = 32;
   double x_perimeter;
   double y_perimeter;
   double angle = 2 * M_PI / npoints;
+  int scale = 1e4;
 
   // file_name.str(std::string());
-  file_name << "stats";
+  file_name << "positions";
   file_name.fill('0');
   int digits = log10(max_steps) + 1;
   file_name.width(digits);
@@ -227,16 +234,17 @@ void write_ps(int step, int max_steps) {
   file_name << ".ps";
   file.open(file_name.str());
   file << "%!PS \n";
-  file << "%%BoundingBox: -200 -100 200 300\n";
+  file << "%%BoundingBox: " << right_bound * scale << "\t" << bot_bound * scale
+       << "\t" << left_bound * scale << "\t" << top_bound * scale << "\n";
   for (int j = 0; j < ngrains; ++j) {
     for (int np = 0; np < npoints; ++np) {
-      x_perimeter = grains[j].xc + grains[j].r * cos(angle * np);
-      y_perimeter = grains[j].yc + grains[j].r * sin(angle * np);
+      x_perimeter = (grains[j].xc + grains[j].r * cos(angle * np)) * scale;
+      y_perimeter = (grains[j].yc + grains[j].r * sin(angle * np)) * scale;
       if (np == 0)
-        file << x_perimeter * 10 << " " << y_perimeter * 10 << " "
+        file << x_perimeter << " " << y_perimeter << " "
              << "newpath moveto ";
       else
-        file << x_perimeter * 10 << " " << y_perimeter * 10 << " "
+        file << x_perimeter << " " << y_perimeter << " "
              << "lineto ";
     }
     file << "closepath gsave ";
@@ -275,19 +283,35 @@ void fix_grain(int j, const std::string& fix_type) {
 
 int main() {
 
-  double slope_angle = 45. / 180. * M_PI;
-  walls[0] = {{-sin(slope_angle), cos(slope_angle)}, {0., 0.}};
-  double x_start = 0.5;
-  grains[0] = {0.01, 130.};
-  grains[0].xc = x_start - grains[0].r * sin(slope_angle);
-  grains[0].yc = x_start * tan(slope_angle) + grains[0].r * cos(slope_angle);
+  double r = 0.001;    // 1 mm : grain radius
+  double rho = 2650.;  // 2650 kg/m^3
+  int row = 0;
+
+  // grain struct initialization
+  for (int j = 0; j < ngrains; ++j) {
+    grains[j] = {r, rho};
+    row = j / single_layer_ngrains;
+    grains[j].yc = r + (sqrt(3) * r) * row;  // hexagonal packing
+    grains[j].xc = 2 * (j % single_layer_ngrains) * r + r + (row % 2) * r;
+  }
+
+  // wall struct initialization
+  walls[0] = {{0., 1.}, {0., 0.}};
+  walls[1] = {{sin(M_PI / 2), cos(M_PI / 2)}, {0., 0.}};
+  // walls[2] = {{-sin(M_PI / 2), cos(M_PI / 2)},
+  //            {2 * r * single_layer_ngrains + r, 0.}};
+
+  // contact struct initialization
+  grain_grain = {1e5, 1e5, 0.7, 0.5, 0.};
+  
   set_gravity(0., -9.81);
-  grain_grain = {1e5, 1e7, 0.5, tan(30. / 180. * M_PI), 1.};
+
   // calculate_timestep();
-  double t = 0.5;
+  double t = 0.2;
   int iwrite = 1000;
   int nsteps = int(t / dt);
   for (int i = 0; i < nsteps; ++i) {
+    std::cout << "step : " << i << std::endl;
     for (int jm = 0; jm < ngrains; ++jm) {
       initialize_acceleration(jm);
       for (int js = 0; js < ngrains; ++js) {
@@ -300,11 +324,9 @@ int main() {
     for (int jm = 0; jm < ngrains; ++jm) {
       update_kinematics(jm);
     }
-    if (i % iwrite == 0) write_for_plotting(i);
-
-    //  std::ofstream file;
-    //  file.open("cpp_dem_results.txt", std::fstream::app);
-    //  file << i * dt << "\t" << grains[1].yc << std::endl;
-    //  file.close();
+    if (i % iwrite == 0) {
+      // write_ps(i, nsteps, 0., 0.07, 0., 0.025);
+      write_for_plotting(i, nsteps);
+    }
   }
 }
